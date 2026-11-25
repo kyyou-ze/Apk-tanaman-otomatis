@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tentukan dan ekstrak file zip
+      - name: Tentukan, ekstrak, dan ratakan file zip
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             TARGET_ZIPS="${{ github.event.inputs.zip_file }}"
@@ -39,9 +39,20 @@ jobs:
           for zip in $TARGET_ZIPS; do
             if [ -f "$zip" ]; then
               echo "Mengekstrak $zip..."
-              # Ekstrak sambil mengabaikan file sampah OS dan folder .git
-              unzip -o "$zip" -d . -x "__MACOSX/*" "*.DS_Store" "Thumbs.db" ".git/*"
+              
+              # 1. Buat folder sementara agar tidak bentrok dengan folder .github atau .git
+              TEMP_DIR=$(mktemp -d)
+              
+              # 2. Ekstrak ke folder sementara sambil mengabaikan file sampah OS dan .git
+              unzip -o "$zip" -d "$TEMP_DIR" -x "__MACOSX/*" "*.DS_Store" "Thumbs.db" ".git/*" ".github/*"
+              
+              # 3. Ratakan semua file dari folder sementara ke root (menimpa file lama yang sama)
+              find "$TEMP_DIR" -type f -exec mv -f {} . \;
+              
+              # 4. Bersihkan folder sementara dan file zip asli
+              rm -rf "$TEMP_DIR"
               rm -f "$zip"
+              
               echo "EXTRACTED=true" >> "$GITHUB_ENV"
             fi
           done
@@ -50,6 +61,6 @@ jobs:
         if: env.EXTRACTED == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: auto-extract zip archive"
+          commit_message: "chore: auto-extract and flatten zip archive"
           file_pattern: "."
           
