@@ -1,18 +1,11 @@
 name: Unzip Project
 
-# Cara pakai:
-# 1. Upload/commit file "VTuberApp.zip" ke root repo ini (lewat web GitHub:
-#    tombol "Add file" > "Upload files", atau lewat git push biasa).
-# 2. Workflow ini otomatis jalan, meng-ekstrak isi zip ke root repo,
-#    menghapus file zip-nya, lalu commit hasil ekstrakannya balik ke repo.
-# 3. Bisa juga dijalankan manual lewat tab Actions > "Unzip Project" > Run workflow.
-#
-# Ganti nilai ZIP_FILE di bawah kalau nama/lokasi file zip-mu beda.
-
 on:
   push:
+    branches:
+      - main # Ganti ke master jika branch utamamu bernama master
     paths:
-      - "**/*.zip"
+      - "*.zip" # Hanya pantau zip di root repo agar lebih aman
   workflow_dispatch:
     inputs:
       zip_file:
@@ -20,34 +13,43 @@ on:
         required: false
         default: "VTuberApp.zip"
 
-env:
-  ZIP_FILE: ${{ github.event.inputs.zip_file || 'VTuberApp.zip' }}
-
 jobs:
   unzip:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cek file zip ada
+      - name: Tentukan dan ekstrak file zip
         run: |
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "File '$ZIP_FILE' tidak ditemukan di repo, lewati."
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TARGET_ZIPS="${{ github.event.inputs.zip_file }}"
+          else
+            # Cari semua file .zip yang ada di root repo
+            TARGET_ZIPS=$(find . -maxdepth 1 -name "*.zip")
+          fi
+
+          if [ -z "$TARGET_ZIPS" ]; then
+            echo "Tidak ada file zip ditemukan."
             exit 0
           fi
-          echo "ZIP_EXISTS=true" >> "$GITHUB_ENV"
 
-      - name: Ekstrak zip ke root repo
-        if: env.ZIP_EXISTS == 'true'
-        run: |
-          unzip -o "$ZIP_FILE" -d .
-          rm -f "$ZIP_FILE"
+          for zip in $TARGET_ZIPS; do
+            if [ -f "$zip" ]; then
+              echo "Mengekstrak $zip..."
+              # Ekstrak sambil mengabaikan file sampah OS dan folder .git
+              unzip -o "$zip" -d . -x "__MACOSX/*" "*.DS_Store" "Thumbs.db" ".git/*"
+              rm -f "$zip"
+              echo "EXTRACTED=true" >> "$GITHUB_ENV"
+            fi
+          done
 
       - name: Commit hasil ekstrak
-        if: env.ZIP_EXISTS == 'true'
+        if: env.EXTRACTED == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: auto-extract ${{ env.ZIP_FILE }}"
+          commit_message: "chore: auto-extract zip archive"
           file_pattern: "."
+          
