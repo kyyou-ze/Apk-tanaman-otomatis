@@ -1,0 +1,19 @@
+name: agribot
+description: AgriBot - kontrol penyiram tanaman otomatis (ESP32, Bluetooth / Wi-Fi / Hotspot)
+publish_to: none
+version: 2.0.0+2
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_blue_plus: ^1.35.0
+  permission_handler: ^11.3.1
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  flutter_local_notifications: ^17.2.4
+
+flutter:
+  uses-material-design: true
